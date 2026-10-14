@@ -140,7 +140,10 @@ export function DraftEditor({
                   )}
                 </Field>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Date">
+                  <Field
+                    label="Suggested task date"
+                    hint="AI fills dates when supported by explicit dates or relative timing. You can edit any date before approval; calculated dates are flagged for review."
+                  >
                     {(id) => (
                       <Input
                         id={id}
