@@ -1,4 +1,5 @@
 import type { Types } from "mongoose";
+import { createHash, randomBytes } from "node:crypto";
 import type { z } from "zod";
 import { env } from "../config/env";
 import { ContactAttempt } from "../models/ContactAttempt";
@@ -95,8 +96,10 @@ export async function buildSummaries(patients: PatientLean[], today: string) {
 }
 
 export async function createPatient(body: z.infer<typeof createPatientBody>) {
-  const patient = await Patient.create(body);
-  return { id: String(patient._id), mrn: patient.mrn, fullName: patient.fullName };
+  const portalToken = randomBytes(32).toString("base64url");
+  const portalTokenHash = createHash("sha256").update(portalToken).digest("hex");
+  const patient = await Patient.create({ ...body, portalTokenHash });
+  return { id: String(patient._id), mrn: patient.mrn, fullName: patient.fullName, portalToken };
 }
 
 export async function listPatients(q?: string) {
@@ -158,4 +161,27 @@ export async function addContactAttempt(
     actor,
   });
   return { id: String(attempt._id) };
+}
+
+
+/** Public, read-only patient portal. Access is granted only by a high-entropy, unguessable share token. */
+export async function getPatientPortal(token: string) {
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const patient = await Patient.findOne({ portalTokenHash: tokenHash }).select("+portalTokenHash").lean();
+  if (!patient) throw ApiError.notFound("This patient portal link is invalid or has been revoked");
+  const plan = await FollowUpPlan.findOne({ patient: patient._id, status: "approved" }).sort({ updatedAt: -1 }).lean();
+  if (!plan) return { patient: { fullName: patient.fullName, mrn: patient.mrn }, plan: null, tasks: [] };
+  const tasks = await FollowUpTask.find({ plan: plan._id, closedAt: null }).sort({ scheduledDate: 1, order: 1 }).lean();
+  const today = todayInTz(env.APP_TIMEZONE);
+  return {
+    patient: { fullName: patient.fullName, mrn: patient.mrn },
+    plan: { summary: plan.draft?.summary ?? "", clinicianFollowUpDate: plan.draft?.clinicianFollowUpDate ?? null },
+    tasks: tasks.map((task) => ({
+      id: String(task._id), title: task.title, description: task.description,
+      scheduledDate: task.scheduledDate ?? null,
+      status: computeStatus({ scheduledDate: task.scheduledDate ?? null, needsReview: task.needsReview, completedAt: task.completedAt ?? null, closedAt: task.closedAt ?? null }, today),
+      completedAt: task.completedAt ?? null,
+      needsReview: task.needsReview,
+    })),
+  };
 }

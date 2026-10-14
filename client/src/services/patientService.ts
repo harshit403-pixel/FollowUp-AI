@@ -12,7 +12,7 @@ export const createPatient = (body: {
   dateOfBirth?: string | null;
   phone?: string;
   email?: string;
-}) => api<{ id: string }>("/patients", { method: "POST", body });
+}) => api<{ id: string; portalToken: string }>("/patients", { method: "POST", body });
 
 export const addContactAttempt = (
   patientId: string,
