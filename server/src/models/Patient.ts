@@ -8,6 +8,7 @@ const patientSchema = new Schema(
     dateOfBirth: { type: String, default: null }, // YYYY-MM-DD
     phone: { type: String, default: "" },
     email: { type: String, default: "" },
+    portalTokenHash: { type: String, default: "", select: false, index: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

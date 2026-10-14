@@ -11,6 +11,7 @@ import type { AuthUser } from "../../types/express";
 import { ApiError } from "../../utils/ApiError";
 import { todayInTz } from "../../utils/dates";
 import { logActivity } from "../activityService";
+import { generateGeminiDraft } from "../ai/geminiPlanService";
 
 const actorOf = (u: AuthUser) => ({ id: u.id, name: u.name });
 
@@ -51,6 +52,16 @@ export async function createPlan(patientId: string, instructions: string, actor:
  * Store a draft (staff-authored or, in Phase 5, AI-generated and Zod-validated).
  * Drafts can be edited until the plan is approved.
  */
+export async function generateDraft(planId: string, actor: AuthUser) {
+  const plan = await FollowUpPlan.findById(planId).lean();
+  if (!plan) throw ApiError.notFound("Plan not found");
+  if (plan.status === "approved") throw ApiError.conflict("This plan is already approved and cannot be regenerated");
+  const patient = await Patient.findById(plan.patient, "fullName mrn").lean();
+  if (!patient) throw ApiError.notFound("Patient not found");
+  const generated = await generateGeminiDraft(plan.originalInstructions, { fullName: patient.fullName, mrn: patient.mrn });
+  return saveDraft(planId, generated.draft, actor, { source: "ai", model: generated.model, generatedAt: new Date() });
+}
+
 export async function saveDraft(
   planId: string,
   draft: DraftInput,

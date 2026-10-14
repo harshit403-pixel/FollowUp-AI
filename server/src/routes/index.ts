@@ -10,6 +10,7 @@ router.get("/health", (_req, res) => res.json({ ok: true }));
 
 // Public
 router.post("/auth/login", auth.loginHandler);
+router.get("/patient-portal/:token", patients.patientPortal);
 
 // Everything below requires a valid JWT
 router.use(authenticate);
