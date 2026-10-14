@@ -26,10 +26,10 @@ export const getPlan = asyncHandler(async (req, res) => {
   res.json(await plans.getPlanDetail(id));
 });
 
-// Gemini integration arrives in Phase 5. Until then staff can author a draft via PUT /draft.
-export const generatePlan = asyncHandler(async (req, _res) => {
-  idParam.parse(req.params);
-  throw new ApiError(501, "AI plan generation is not enabled yet");
+export const generatePlan = asyncHandler(async (req, res) => {
+  if (!req.user) throw ApiError.unauthorized();
+  const { id } = idParam.parse(req.params);
+  res.json(await plans.generateDraft(id, req.user));
 });
 
 export const saveDraft = asyncHandler(async (req, res) => {

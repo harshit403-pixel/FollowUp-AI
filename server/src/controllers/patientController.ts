@@ -24,3 +24,11 @@ export const addContactAttempt = asyncHandler(async (req, res) => {
   const body = contactAttemptBody.parse(req.body);
   res.status(201).json(await patients.addContactAttempt(id, body, req.user));
 });
+
+
+export const patientPortal = asyncHandler(async (req, res) => {
+  const token = req.params.token;
+  if (!/^[A-Za-z0-9_-]{30,100}$/.test(token)) throw ApiError.notFound("Patient portal not found");
+  res.setHeader("Cache-Control", "no-store");
+  res.json(await patients.getPatientPortal(token));
+});
